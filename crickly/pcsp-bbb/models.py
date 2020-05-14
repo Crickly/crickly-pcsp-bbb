@@ -9,15 +9,36 @@ from crickly.core import models as coremodels
 class Ball(models.Model):
     # Ball identifiers
     ball_key = models.CharField(max_length=8)
+    match = models.ForeignKey(
+        coremodels.Match,
+        on_delete=models.CASCADE,
+        related_name='match'
+    )
     innings_number = models.IntegerField()
     over_number = models.IntegerField()
     ball_number = models.IntegerField()
 
     # Players Involved
-    batsman = models.ForeignKey(coremodels.Player, ondelete=models.CASCADE)
-    non_striker = models.ForeignKey(coremodels.Player, ondelete=models.CASCADE)
-    bowler = models.ForeignKey(coremodels.Player, ondelete=models.CASCADE)
-    fielder = models.ForeignKey(coremodels.Player, ondelete=models.CASCADE)
+    batsman = models.ForeignKey(
+        coremodels.Player,
+        on_delete=models.CASCADE,
+        related_name='batsman'
+    )
+    non_striker = models.ForeignKey(
+        coremodels.Player,
+        on_delete=models.CASCADE,
+        related_name='non_striker'
+    )
+    bowler = models.ForeignKey(
+        coremodels.Player,
+        on_delete=models.CASCADE,
+        related_name='bowler'
+    )
+    fielder = models.ForeignKey(
+        coremodels.Player,
+        on_delete=models.CASCADE,
+        related_name='fielder'
+    )
 
     # Runs scored
     runs = models.IntegerField()
@@ -30,7 +51,11 @@ class Ball(models.Model):
 
     # Wickets
     is_wicket = models.BooleanField()
-    out_player = models.ForeignKey(coremodels.Player, ondelete=models.CASCADE)
+    out_batsman = models.ForeignKey(
+        coremodels.Player,
+        on_delete=models.CASCADE,
+        related_name='out_batsman'
+    )
     how_out = models.IntegerField()
 
     # Totals

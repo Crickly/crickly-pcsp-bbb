@@ -22,7 +22,7 @@ setup(
     author='Riley Evans',
     author_email='crickly@rileyevans.co.uk',
     install_requires=[
-        'crickly',
+        'crickly-playcricket',
     ],
     classifiers=[
         'Environment :: Web Environment',
