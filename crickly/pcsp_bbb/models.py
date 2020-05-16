@@ -4,6 +4,20 @@ from __future__ import unicode_literals
 from django.db import models
 
 from crickly.core import models as coremodels
+from crickly.playcricket import models as pcmodels
+
+class Match(models.Model):
+    match = models.ForeignKey(
+        pcmodels.Match,
+        on_delete=models.CASCADE,
+        related_name='match'
+    )
+
+    is_pcsp = models.BooleanField(default=False)
+    is_live = models.BooleanField(default=False)
+
+    is_error = models.BooleanField(default=False)
+    error_text = models.TextField(default='')
 
 
 class Ball(models.Model):
@@ -37,7 +51,8 @@ class Ball(models.Model):
     fielder = models.ForeignKey(
         coremodels.Player,
         on_delete=models.CASCADE,
-        related_name='fielder'
+        related_name='fielder',
+        null=True
     )
 
     # Runs scored
@@ -54,9 +69,10 @@ class Ball(models.Model):
     out_batsman = models.ForeignKey(
         coremodels.Player,
         on_delete=models.CASCADE,
-        related_name='out_batsman'
+        related_name='out_batsman',
+        null=True
     )
-    how_out = models.IntegerField()
+    how_out = models.CharField(max_length=20)
 
     # Totals
     total_balls = models.IntegerField()
@@ -65,11 +81,12 @@ class Ball(models.Model):
 
     total_runs = models.IntegerField()
     total_bat_runs = models.IntegerField()
+    total_bowl_runs = models.IntegerField()
     total_extra_runs = models.IntegerField()
 
     total_wickets = models.IntegerField()
     total_bowler_wickets = models.IntegerField()
 
     # Wagon wheel
-    wagon_x = models.FloatField()
-    wagon_y = models.FloatField()
+    wagon_x = models.FloatField(null=True)
+    wagon_y = models.FloatField(null=True)
