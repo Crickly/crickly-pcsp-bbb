@@ -7,7 +7,6 @@ from crickly.pcsp_bbb import models as bbbmodels
 
 import requests
 import json
-import csv
 
 
 class Command(BaseCommand):
@@ -29,7 +28,6 @@ class Command(BaseCommand):
             #     writer = csv.DictWriter(f, keys)
             #     writer.writeheader()
             #     writer.writerows(uploader.balls)
-
 
 
 class BBBMatchUploader(object):
@@ -59,7 +57,6 @@ class BBBMatchUploader(object):
                 )
             )
 
-
             if 'Message' in self.json_data:
                 if self.json_data['Message'] == 'An error has occurred.':
                     self.bbb_match.is_pcsp = False
@@ -71,8 +68,6 @@ class BBBMatchUploader(object):
         else:
             self.bbb_match.is_pcsp = False
         self.bbb_match.save()
-
-
 
     def process(self):
         if not self.bbb_match.is_pcsp:
@@ -150,7 +145,6 @@ class BBBMatchUploader(object):
             batting_players = self.team_2_players
             bowling_players = self.team_1_players
 
-
         match_state = {
             'total_balls': 0,
             'total_runs': 0,
@@ -175,9 +169,13 @@ class BBBMatchUploader(object):
             for ball_number, ball in enumerate(over['Balls'], 1):
 
                 if ball['bt'] != match_state['on_strike']:
-                    match_state['on_strike'], match_state['non_strike'] =\
-                    match_state['non_strike'], match_state['on_strike']
-
+                    (
+                        match_state['on_strike'],
+                        match_state['non_strike']
+                    ) = (
+                        match_state['non_strike'],
+                        match_state['on_strike']
+                    )
 
                 is_wicket = False
                 how_out = ''
@@ -193,7 +191,16 @@ class BBBMatchUploader(object):
                         bowling_players
                     )
 
-                runs, bat_runs, extra_runs, wides, noballs, byes, leg_byes = self.get_runs(ball)
+                (
+                    runs,
+                    bat_runs,
+                    extra_runs,
+                    wides,
+                    noballs,
+                    byes,
+                    leg_byes,
+                    penalties
+                ) = self.get_runs(ball)
 
                 batsman_id, non_striker_id, bowler_id = self.get_players(
                     ball,
@@ -218,7 +225,6 @@ class BBBMatchUploader(object):
 
                     if how_out in ['Bowled', 'Caught', 'LBW', 'Stumped', 'Hitwicket']:
                         bowling_card_lookup[ball['bl']]['total_bowler_wickets'] += 1
-
 
                 balls.append(bbbmodels.Ball(**{
                     'ball_key': ball['BallKey'],
@@ -314,43 +320,53 @@ class BBBMatchUploader(object):
         return out_player_id, out_player_index, fielder_id, how_out
 
     def get_runs(self, ball):
-        if ball['Display'] in ['.', 'W']:
-            # Dot ball
-            return 0, 0, 0, 0, 0, 0, 0
-        ball['Display'] = ball['Display'].replace('W', '')
-        if 'w' in ball['Display']:
-            # Wide ball
-            wides = 1
-            if '+' in ball['Display']:
-                wides += int(ball['Display'].split('+')[1])
-            return wides, 0, wides, wides, 0, 0, 0
-        if 'nb' in ball['Display']:
-            noballs = 1
-            bat_runs = 0
-            byes = 0
-            leg_byes = 0
-            if '+' in ball['Display']:
-                first_half = ball['Display'].split('+')[0]
-                if 'lb' in first_half:
-                    leg_byes = int(first_half.strip('lb'))
-                elif 'b' in first_half:
-                    byes = int(first_half.strip('b'))
+
+        split_text = ball['Display'].split('+')
+        is_wide = False
+
+        runs, bat_runs, extra_runs, wides, noballs = 0, 0, 0, 0, 0
+        byes, leg_byes, penalties = 0, 0, 0
+
+        for item in split_text:
+            if item == '.':
+                is_wide = False
+            elif item == 'W':
+                is_wide = False
+            elif 'w' in item:
+                is_wide = True
+                wides += 1
+                runs += 1
+                extra_runs += 1
+            elif 'nb' in item:
+                is_wide = False
+                noballs += 1
+                runs += 1
+                extra_runs += 1
+            elif 'lb' in item:
+                is_wide = False
+                leg_byes += int(item.strip('lb'))
+                runs += int(item.strip('lb'))
+                extra_runs += int(item.strip('lb'))
+            elif 'pen' in item:
+                is_wide = False
+                penalties += int(item.strip('pen'))
+                runs += int(item.strip('pen'))
+                extra_runs += int(item.strip('pen'))
+            elif 'b' in item:
+                is_wide = False
+                byes += int(item.strip('b'))
+                runs += int(item.strip('b'))
+                extra_runs += int(item.strip('b'))
+            else:
+                if is_wide:
+                    wides += int(item)
+                    runs += int(item)
+                    extra_runs += int(item)
                 else:
-                    bat_runs = int(first_half)
-
-            return noballs + bat_runs + byes + leg_byes, bat_runs, noballs + byes + leg_byes, \
-                0, noballs, byes, leg_byes
-
-        if 'lb' in ball['Display']:
-            leg_byes = int(ball['Display'].strip('lb'))
-            return leg_byes, 0, leg_byes, 0, 0, 0, leg_byes
-
-        if 'b' in ball['Display']:
-            byes = int(ball['Display'].strip('b'))
-            return byes, 0, byes, 0, 0, byes, 0
-
-        runs = int(ball['Display'])
-        return runs, runs, 0, 0, 0, 0, 0
+                    bat_runs += int(item)
+                    runs += int(item)
+                is_wide = False
+        return runs, bat_runs, extra_runs, wides, noballs, byes, leg_byes, penalties
 
     def get_players(
             self,
@@ -376,7 +392,6 @@ class BBBMatchUploader(object):
             _bowler_id
         ]['player'].id
 
-
         return batsman_id, non_striker_id, bowler_id
 
     @staticmethod
@@ -384,10 +399,10 @@ class BBBMatchUploader(object):
         r = requests.get(url)
         if r.status_code != 200:
             try:
-                return json.loads(r.text[r.text.find('(')+1: r.text.rfind(')')])
-            except:
+                return json.loads(r.text[r.text.find('(') + 1: r.text.rfind(')')])
+            except:  # noqa
                 raise Exception('Request failed, had status code of {}'.format(r.status_code))
-        return json.loads(r.text[r.text.find('(')+1: r.text.rfind(')')])
+        return json.loads(r.text[r.text.find('(') + 1: r.text.rfind(')')])
 
 
 class PlayerManager(object):
@@ -403,7 +418,7 @@ class PlayerManager(object):
                 pc_id=nv_play_player['ExternalId'],
                 link__club_id=club_id
             )
-        except:
+        except:  # noqa
             player = pcmodels.Player.objects.get(
                 link__club_id=club_id,
                 link__performance__match_id=self.match_id,
@@ -421,4 +436,3 @@ class PlayerManager(object):
 
     def __contains__(self, value):
         return value in self.player_dict
-
